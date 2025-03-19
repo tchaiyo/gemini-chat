@@ -6,9 +6,6 @@ from google.genai import types
 # --- กำหนดค่าเริ่มต้น ---
 DEFAULT_PARENT_FOLDER = "data"  # เปลี่ยนเป็นโฟลเดอร์ที่คุณต้องการ
 PARENT_FOLDER = DEFAULT_PARENT_FOLDER
-parts = []
-uploaded_files = []
-finished = False
 
 # --- ฟังก์ชันต่างๆ ---
 def create_folder(folder_name, parent_folder):
@@ -84,6 +81,14 @@ def main():
     # --- เริ่มต้น Streamlit app ---
     st.title("GEMINI-2.0-Flash RAG Chatbot")
 
+    # Initialize session state
+    if 'finished' not in st.session_state:
+        st.session_state.finished = False
+    if 'parts' not in st.session_state:
+        st.session_state.parts = []
+    if 'uploaded_files' not in st.session_state:
+        st.session_state.uploaded_files = []
+
     with st.sidebar:
         st.title('1. เตรียมไฟล์')
         # 1. สร้างโฟลเดอร์
@@ -103,10 +108,10 @@ def main():
 
         if folder_options:
             selected_folder = st.selectbox("เลือกโฟลเดอร์:", folder_options)
-            uploaded_files = st.file_uploader("เลือกไฟล์:", accept_multiple_files=True)  # Allow multiple file uploads
+            uploaded_files_for_upload = st.file_uploader("เลือกไฟล์:", accept_multiple_files=True)  # Allow multiple file uploads
 
-            if uploaded_files:
-                upload_files(selected_folder, uploaded_files, PARENT_FOLDER) # Call the multiple file upload function
+            if uploaded_files_for_upload:
+                upload_files(selected_folder, uploaded_files_for_upload, PARENT_FOLDER) # Call the multiple file upload function
         else:
             st.warning("ยังไม่มีโฟลเดอร์ กรุณาสร้างโฟลเดอร์ก่อน")
 
@@ -134,55 +139,80 @@ def main():
             else:
                 st.info("ไม่มีไฟล์ในโฟลเดอร์นี้")
 
-        else:
-            st.warning("ยังไม่มีโฟลเดอร์ กรุณาสร้างโฟลเดอร์ก่อน")
-
         # 5. สร้างช่องบันทึก Google API Key
         st.title('2. Google AI Config')
         google_api_key = st.text_input('Enter your Google API key:', type='password', value='AIzaSyAqXw5g35k2EBLWOWxNkfyoicdPik69QsI')
         selected_api_folder = st.selectbox("เลือกโฟลเดอร์สำหรับวิเคราะห์:", folder_options)
         client = genai.Client(api_key=google_api_key)
-        if st.button('Start Analysis'):
-            km_files = file_path_in_folder(selected_api_folder, PARENT_FOLDER)
-            with st.spinner("🔄 กำลังอัพโหลด..."):
-                for file_path in km_files:
-                    st.write(f"อัปโหลดไฟล์: {file_path}")
-                    uploaded_files.append(client.files.upload(file=file_path))
-                    parts.append(types.Part.from_uri(file_uri=uploaded_files[-1].uri, mime_type=uploaded_files[-1].mime_type))
-                    #st.write(f"URI: {uploaded_files[-1].uri}, MIME Type: {uploaded_files[-1].mime_type}")
-                finished = True
 
     if google_api_key:
         if selected_api_folder:
-            q = st.text_input("ถามคำถามได้เลยครับ:")
-            if q:
-                st.write(f"ค้นข้อมูลจาก {len(uploaded_files)} ไฟล์")
-                st.write(f"ค้นข้อมูลจาก {len(parts)} ไฟล์")
-                with st.spinner("🤖 กำลังประมวลผล..."):
-                    parts.append(types.Part.from_text(text=f"""{q}"""))
-                    model = "gemini-2.0-flash"
-                    contents = [
-                        types.Content(
-                            role="user",
-                            parts=parts
+
+            km_files = file_path_in_folder(selected_api_folder, PARENT_FOLDER)
+
+            # Create parts and uploaded_files if they don't exist in session_state
+            if not st.session_state.parts:
+                st.session_state.parts = []
+            if not st.session_state.uploaded_files:
+                st.session_state.uploaded_files = []
+
+
+            if st.button('Start Analysis'):
+                # Clear existing data when starting a new analysis
+                st.session_state.parts = []
+                st.session_state.uploaded_files = []
+
+                with st.spinner("🔄 กำลังอัพโหลด..."):
+                    for file_path in km_files:
+                        st.write(f"อัปโหลดไฟล์: {file_path}")
+                        uploaded_file = client.files.upload(file=file_path)
+                        st.session_state.uploaded_files.append(uploaded_file)
+                        st.session_state.parts.append(types.Part.from_uri(file_uri=uploaded_file.uri, mime_type=uploaded_file.mime_type))
+                    st.session_state.finished = True
+                    st.write(f"อัพโหลดไฟล์ทั้งสิ้น {len(st.session_state.uploaded_files)} ไฟล์")
+
+            if st.session_state.finished: # ใช้ session_state.finished
+                q = st.text_input("ถามคำถามได้เลยครับ:")
+                if q:
+                    st.write(f"ค้นข้อมูลจาก {len(st.session_state.parts)} ไฟล์")
+                    #st.write(f"ไฟล์แรกคือ: {st.session_state.parts[0]}")
+                    #st.write(f"ไฟล์ที่สองคือ: {st.session_state.parts[1]}")
+                    #st.session_state.parts.append(types.Part.from_text(text=f"""{q}""")) # ย้ายมาตรงนี้ก่อนเรียก API
+                    combined_parts = st.session_state.parts + [types.Part.from_text(text=f"""{q}""")]
+
+                    with st.spinner("🤖 กำลังประมวลผล..."):
+
+                        model = "gemini-2.0-flash"
+                        contents = [
+                            types.Content(
+                                role="user",
+                                parts=combined_parts
+                            )
+                        ]
+                        generate_content_config = types.GenerateContentConfig(
+                            temperature=1.0,
+                            top_p=0.95,
+                            top_k=40,
+                            max_output_tokens=8192,
+                            response_mime_type="text/plain",
                         )
-                    ]
-                    generate_content_config = types.GenerateContentConfig(
-                        temperature=1.0,
-                        top_p=0.95,
-                        top_k=40,
-                        max_output_tokens=8192,
-                        response_mime_type="text/plain",
-                    )
-                    for chunk in client.models.generate_content_stream(
-                        model=model,
-                        contents=contents,
-                        config=generate_content_config,
-                    ):
-                        st.write(chunk.text, end="")
+                        for chunk in client.models.generate_content_stream(
+                            model=model,
+                            contents=contents,
+                            config=generate_content_config,
+                        ):
+                            st.write(chunk.text)
+
+                    # Clear the question after processing to avoid re-processing
+                    # q = ""  # This doesn't work due to how Streamlit handles text_input
+                    # A better solution might be to use a form and clear the input after submission.
+            else:
+                st.warning("กดปุ่ม 'Start Analysis' และรออัพโหลดไฟล์ก่อน")
         else:
             st.warning("ยังไม่ทำการเลือกโฟลเดอร์")
     else:
         st.warning("ยังไม่ทำการกรอก Google API Key")
+
+
 if __name__ == "__main__":
     main()
