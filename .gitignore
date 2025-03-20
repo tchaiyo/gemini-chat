@@ -6,3 +6,4 @@ credentials-viewer.json
 /data
 /pdfs
 chat.py
+.env
