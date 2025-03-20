@@ -141,7 +141,7 @@ def main():
 
         # 5. สร้างช่องบันทึก Google API Key
         st.title('2. Google AI Config')
-        google_api_key = st.text_input('Enter your Google API key:', type='password', value='AIzaSyAqXw5g35k2EBLWOWxNkfyoicdPik69QsI')
+        google_api_key = st.text_input('Enter your Google API key:', type='password')
         selected_api_folder = st.selectbox("เลือกโฟลเดอร์สำหรับวิเคราะห์:", folder_options)
         client = genai.Client(api_key=google_api_key)
 
@@ -157,7 +157,7 @@ def main():
                 st.session_state.uploaded_files = []
 
 
-            if st.button('Start Analysis'):
+            if st.button('เริ่มใช้งาน'):
                 # Clear existing data when starting a new analysis
                 st.session_state.parts = []
                 st.session_state.uploaded_files = []
@@ -207,7 +207,7 @@ def main():
                     # q = ""  # This doesn't work due to how Streamlit handles text_input
                     # A better solution might be to use a form and clear the input after submission.
             else:
-                st.warning("กดปุ่ม 'Start Analysis' และรออัพโหลดไฟล์ก่อน")
+                st.warning("กดปุ่ม 'เริ่มใช้งาน' และรอให้อัพโหลดไฟล์เสร็จก่อน")
         else:
             st.warning("ยังไม่ทำการเลือกโฟลเดอร์")
     else:
