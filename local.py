@@ -139,7 +139,7 @@ def main():
 
         # 5. สร้างช่องบันทึก Google API Key
         st.title('2. Google AI Config')
-        google_api_key = st.text_input('Enter your Google API key:', type='password', value='AIzaSyAqXw5g35k2EBLWOWxNkfyoicdPik69QsI')
+        google_api_key = st.text_input('Enter your Google API key:', type='password')
         selected_api_folder = st.selectbox("เลือกโฟลเดอร์สำหรับวิเคราะห์:", folder_options)
         client = genai.Client(api_key=google_api_key)
         if st.button('Start Analysis'):
