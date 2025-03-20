@@ -5,3 +5,4 @@ credentials-admin.json
 credentials-viewer.json
 /data
 /pdfs
+chat.py
