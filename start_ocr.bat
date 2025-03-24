@@ -1,0 +1,1 @@
+start streamlit run ocr.py
